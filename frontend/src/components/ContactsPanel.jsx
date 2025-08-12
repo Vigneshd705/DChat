@@ -5,86 +5,153 @@ import Avatar from './Avatar';
 import { ethers } from 'ethers';
 
 const ContactsPanel = ({ onSelectChat, activeChat }) => {
-    const { contract, account, username } = useChat();
+    const { contract, account } = useChat();
     const [contacts, setContacts] = useState([]);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [friendAddress, setFriendAddress] = useState('');
-    const [error, setError] = useState('');
+    const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
+    const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+    
+    // State for search and dropdown menu
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-    const fetchContacts = useCallback(async () => {
+    // State for modal inputs
+    const [friendAddress, setFriendAddress] = useState('');
+    const [friendError, setFriendError] = useState('');
+    const [groupName, setGroupName] = useState('');
+    const [groupMembers, setGroupMembers] = useState('');
+    const [groupError, setGroupError] = useState('');
+
+    const fetchContactsAndGroups = useCallback(async () => {
         if (!contract || !account) return;
         try {
             const friendAddresses = await contract.getFriendList(account);
             const friends = await Promise.all(friendAddresses.map(async (address) => ({
                 type: 'user', id: address, name: await contract.getUser(address) || 'Unnamed'
             })));
-            setContacts(friends);
-        } catch(err) { console.error("Could not fetch contacts:", err); }
+
+            const groupIds = await contract.getUserGroups(account);
+            const groups = await Promise.all(groupIds.map(async (id) => {
+                const details = await contract.getGroupDetails(id);
+                return {
+                    type: 'group', id: Number(details[0]), name: details[1], members: details[3]
+                };
+            }));
+            
+            setContacts([...friends, ...groups]);
+        } catch(err) { console.error("Could not fetch contacts/groups:", err); }
     }, [contract, account]);
 
     useEffect(() => {
         if(contract) {
-            fetchContacts();
-            const onFriendAdded = (user1, user2) => {
-                if (user1.toLowerCase() === account.toLowerCase() || user2.toLowerCase() === account.toLowerCase()) {
-                    fetchContacts();
-                }
+            fetchContactsAndGroups();
+            const updateContacts = () => fetchContactsAndGroups();
+            contract.on('FriendAdded', updateContacts);
+            contract.on('GroupCreated', updateContacts);
+            contract.on('MemberAddedToGroup', updateContacts);
+            return () => {
+                contract.off('FriendAdded', updateContacts);
+                contract.off('GroupCreated', updateContacts);
+                contract.off('MemberAddedToGroup', updateContacts);
             };
-            contract.on('FriendAdded', onFriendAdded);
-            return () => contract.off('FriendAdded', onFriendAdded);
         }
-    }, [contract, account, fetchContacts]);
+    }, [contract, account, fetchContactsAndGroups]);
 
     const handleAddFriend = async () => {
-        setError('');
+        setFriendError('');
         const input = friendAddress.trim();
-        if (!input) return setError("Input cannot be empty.");
+        if (!input) return setFriendError("Input cannot be empty.");
         try {
-            let tx;
-            if (ethers.isAddress(input)) {
-                tx = await contract.addFriend(input);
-            } else {
-                tx = await contract.addFriendByUsername(input);
-            }
+            const tx = ethers.isAddress(input)
+                ? await contract.addFriend(input)
+                : await contract.addFriendByUsername(input);
             await tx.wait();
-            setIsModalOpen(false);
+            setIsFriendModalOpen(false);
             setFriendAddress('');
-        } catch (err) { setError(err.reason || "Failed to add friend."); }
+        } catch (err) { setFriendError(err.reason || "Failed to add friend."); }
+    };
+
+    const handleCreateGroup = async () => {
+        setGroupError('');
+        const name = groupName.trim();
+        if (!name) return setGroupError("Group name cannot be empty.");
+        const members = groupMembers.split(',').map(addr => addr.trim()).filter(addr => ethers.isAddress(addr));
+        try {
+            const tx = await contract.createGroup(name, members);
+await tx.wait();
+            setIsGroupModalOpen(false);
+            setGroupName('');
+            setGroupMembers('');
+        } catch (err) { setGroupError(err.reason || "Failed to create group."); }
+    };
+
+    const filteredContacts = contacts.filter(contact =>
+        contact.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const openModal = (type) => {
+        if (type === 'friend') setIsFriendModalOpen(true);
+        if (type === 'group') setIsGroupModalOpen(true);
+        setIsMenuOpen(false);
     };
 
     return (
         <>
             <aside className="contacts-panel">
                 <header className="contacts-header">
-                    <div className="user-profile">
-                        <Avatar name={username} />
-                        <div className="user-info">
-                            <h2>{username}</h2>
-                            <p>{account}</p>
+                    <h1 className="header-title">DChat</h1>
+                    <div className="header-actions">
+                        <div className="actions-menu">
+                            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="icon-button" title="More options">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 14c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-7c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"></path></svg>
+                            </button>
+                            {isMenuOpen && (
+                                <div className="dropdown-menu">
+                                    <button onClick={() => openModal('friend')} className="dropdown-item">Add New Friend</button>
+                                    <button onClick={() => openModal('group')} className="dropdown-item">Create New Group</button>
+                                </div>
+                            )}
                         </div>
                     </div>
-                    <button onClick={() => setIsModalOpen(true)} title="Add Friend" className="view-button" style={{padding: '0.5rem'}}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="17" y1="11" x2="23" y2="11"></line></svg>
-                    </button>
                 </header>
+
+                <div className="search-container">
+                    <input
+                        type="text"
+                        placeholder="Search chats..."
+                        className="search-input"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+
                 <div className="contact-list">
-                    {contacts.map(contact => (
-                        <div key={contact.id} className={`contact-item ${activeChat?.id === contact.id ? 'active' : ''}`} onClick={() => onSelectChat(contact)}>
+                    {filteredContacts.map(contact => (
+                        <div key={`${contact.type}-${contact.id}`} className={`contact-item ${activeChat?.id === contact.id && activeChat?.type === contact.type ? 'active' : ''}`} onClick={() => onSelectChat(contact)}>
                             <Avatar name={contact.name} />
                             <div className="user-info">
                                 <h2>{contact.name}</h2>
-                                <p>{contact.id}</p>
+                                {contact.type === 'user' ? <p>{contact.id}</p> : <p>{contact.members.length} members</p>}
                             </div>
                         </div>
                     ))}
                 </div>
             </aside>
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add a Friend" onAction={handleAddFriend} actionText="Add" showAction={true}>
-                <p className="view-subtitle" style={{marginBottom: '1rem'}}>Enter your friend's username or full Ethereum address.</p>
+
+            <Modal isOpen={isFriendModalOpen} onClose={() => setIsFriendModalOpen(false)} title="Add a Friend" onAction={handleAddFriend} actionText="Add" showAction={true}>
+                <p className="view-subtitle" style={{marginBottom: '1rem'}}>Enter a username or Ethereum address.</p>
                 <input type="text" placeholder="Username or 0x..." value={friendAddress} onChange={(e) => setFriendAddress(e.target.value)} className="view-input"/>
-                {error && <p style={{color: 'red', marginTop: '0.5rem'}}>{error}</p>}
+                {friendError && <p style={{color: 'red', marginTop: '0.5rem'}}>{friendError}</p>}
+            </Modal>
+
+            <Modal isOpen={isGroupModalOpen} onClose={() => setIsGroupModalOpen(false)} title="Create a New Group" onAction={handleCreateGroup} actionText="Create" showAction={true}>
+                <p className="view-subtitle" style={{marginBottom: '1rem'}}>Enter a name for your group.</p>
+                <input type="text" placeholder="Group Name" value={groupName} onChange={(e) => setGroupName(e.target.value)} className="view-input"/>
+                <p className="view-subtitle" style={{marginBottom: '1rem', marginTop: '1rem'}}>Optionally, add members by address (comma-separated).</p>
+                <textarea placeholder="0x..., 0x..." value={groupMembers} onChange={(e) => setGroupMembers(e.target.value)} className="view-input" style={{height: '80px', resize: 'none'}} />
+                {groupError && <p style={{color: 'red', marginTop: '0.5rem'}}>{groupError}</p>}
             </Modal>
         </>
     );
 };
+
 export default ContactsPanel;
