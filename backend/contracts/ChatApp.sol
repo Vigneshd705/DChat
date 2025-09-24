@@ -3,15 +3,11 @@ pragma solidity ^0.8.19;
 
 /**
  * @title ChatApp
- * @author Gemini
- * @notice A decentralized chat application contract on Ethereum.
- * It allows users to register, add friends, create groups, and send messages.
- * Messages are not stored on-chain to save gas; instead, they are emitted as events
- * that a frontend client can listen to.
+ * @notice A decentralized chat application supporting both on-chain text and off-chain IPFS content.
  */
 contract ChatApp {
     // ==============================================================================
-    // State Variables
+    // State Variables, Structs, Modifiers
     // ==============================================================================
 
     struct User {
@@ -29,7 +25,6 @@ contract ChatApp {
 
     mapping(address => User) private allUsers;
     mapping(string => bool) private isUsernameTaken;
-    // NEW: Reverse mapping from username to address for easy lookup.
     mapping(string => address) private userAddressByName;
 
     mapping(address => mapping(address => bool)) private friendships;
@@ -47,8 +42,13 @@ contract ChatApp {
     event FriendAdded(address indexed user1, address indexed user2);
     event GroupCreated(uint256 indexed groupId, string groupName, address indexed owner);
     event MemberAddedToGroup(uint256 indexed groupId, address indexed member);
-    event NewMessage(address indexed from, address indexed to, string message, uint256 timestamp);
-    event NewGroupMessage(address indexed from, uint256 indexed groupId, string message, uint256 timestamp);
+
+    // HYBRID MESSAGING EVENTS
+    event NewTextMessage(address indexed from, address indexed to, string message, uint256 timestamp);
+    event NewIPFSMessage(address indexed from, address indexed to, string ipfsCid, string fileName, uint256 timestamp);
+    
+    event NewGroupTextMessage(address indexed from, uint256 indexed groupId, string message, uint256 timestamp);
+    event NewGroupIPFSMessage(address indexed from, uint256 indexed groupId, string ipfsCid, string fileName, uint256 timestamp);
 
     // ==============================================================================
     // Modifiers
@@ -66,6 +66,7 @@ contract ChatApp {
 
     modifier isGroupMember(uint256 _groupId) {
         uint256 groupIndex = groupIdToIndex[_groupId];
+        require(groupIndex < allGroups.length, "Group does not exist.");
         require(allGroups[groupIndex].isMember[msg.sender], "You are not a member of this group.");
         _;
     }
@@ -75,11 +76,12 @@ contract ChatApp {
     // ==============================================================================
 
     function createUser(string calldata _name) external userDoesNotExist(msg.sender) {
+        require(bytes(_name).length > 0, "Username cannot be empty.");
         require(!isUsernameTaken[_name], "Username is already taken.");
         
         allUsers[msg.sender] = User({ name: _name, accountAddress: msg.sender });
         isUsernameTaken[_name] = true;
-        userAddressByName[_name] = msg.sender; // NEW: Store the reverse mapping.
+        userAddressByName[_name] = msg.sender;
 
         emit UserCreated(msg.sender, _name);
     }
@@ -97,25 +99,10 @@ contract ChatApp {
         emit FriendAdded(msg.sender, _friendAddress);
     }
 
-    /**
-     * @notice NEW: Adds a friend by their unique username.
-     * @param _username The username of the user to add as a friend.
-     */
     function addFriendByUsername(string calldata _username) external userExists(msg.sender) {
-        // Look up the friend's address using the new mapping
         address friendAddress = userAddressByName[_username];
-
-        // Ensure the username exists
         require(friendAddress != address(0), "User with this username does not exist.");
-
-        // Call the existing addFriend function with the resolved address.
-        // The `addFriend` function is now public so this contract can call it.
         addFriend(friendAddress);
-    }
-
-    function sendMessage(address _recipient, string calldata _message) external userExists(msg.sender) userExists(_recipient) {
-        require(friendships[msg.sender][_recipient], "You can only message your friends.");
-        emit NewMessage(msg.sender, _recipient, _message, block.timestamp);
     }
 
     function createGroup(string calldata _groupName, address[] calldata _initialMembers) external userExists(msg.sender) {
@@ -147,8 +134,24 @@ contract ChatApp {
         emit GroupCreated(groupId, _groupName, msg.sender);
     }
 
-    function sendGroupMessage(uint256 _groupId, string calldata _message) external isGroupMember(_groupId) {
-        emit NewGroupMessage(msg.sender, _groupId, _message, block.timestamp);
+    // --- Hybrid Messaging Functions ---
+
+    function sendMessageText(address _recipient, string calldata _message) external userExists(msg.sender) userExists(_recipient) {
+        require(friendships[msg.sender][_recipient], "You can only message your friends.");
+        emit NewTextMessage(msg.sender, _recipient, _message, block.timestamp);
+    }
+
+    function sendMessageIPFS(address _recipient, string calldata _ipfsCid, string calldata _fileName) external userExists(msg.sender) userExists(_recipient) {
+        require(friendships[msg.sender][_recipient], "You can only message your friends.");
+        emit NewIPFSMessage(msg.sender, _recipient, _ipfsCid, _fileName, block.timestamp);
+    }
+    
+    function sendGroupTextMessage(uint256 _groupId, string calldata _message) external isGroupMember(_groupId) {
+        emit NewGroupTextMessage(msg.sender, _groupId, _message, block.timestamp);
+    }
+
+    function sendGroupIPFSMessage(uint256 _groupId, string calldata _ipfsCid, string calldata _fileName) external isGroupMember(_groupId) {
+        emit NewGroupIPFSMessage(msg.sender, _groupId, _ipfsCid, _fileName, block.timestamp);
     }
 
     // ==============================================================================
@@ -158,8 +161,6 @@ contract ChatApp {
     function getUser(address _userAddress) external view returns (string memory) {
         return allUsers[_userAddress].name;
     }
-
-
 
     function getFriendList(address _userAddress) external view returns (address[] memory) {
         return friendLists[_userAddress];

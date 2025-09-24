@@ -9,9 +9,8 @@ function App() {
     const { account, username, error } = useChat();
     const [activeChat, setActiveChat] = React.useState(null);
 
-    // Render loading or error states
     if (error) {
-        return <div className="app-wrapper"><p style={{color: 'red'}}>{error}</p></div>;
+        return <div className="app-wrapper"><div className="login-view"><p style={{color: 'red'}}>{error}</p></div></div>;
     }
     if (!account) {
         return <div className="app-wrapper"><Login /></div>;
@@ -20,7 +19,6 @@ function App() {
         return <div className="app-wrapper"><Register /></div>;
     }
 
-    // Render the main chat application
     return (
         <div className="app-wrapper">
             <main className="app-container">

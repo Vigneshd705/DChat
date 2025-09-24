@@ -9,12 +9,8 @@ const ContactsPanel = ({ onSelectChat, activeChat }) => {
     const [contacts, setContacts] = useState([]);
     const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
     const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
-    
-    // State for search and dropdown menu
     const [searchTerm, setSearchTerm] = useState('');
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-    // State for modal inputs
     const [friendAddress, setFriendAddress] = useState('');
     const [friendError, setFriendError] = useState('');
     const [groupName, setGroupName] = useState('');
@@ -28,15 +24,11 @@ const ContactsPanel = ({ onSelectChat, activeChat }) => {
             const friends = await Promise.all(friendAddresses.map(async (address) => ({
                 type: 'user', id: address, name: await contract.getUser(address) || 'Unnamed'
             })));
-
             const groupIds = await contract.getUserGroups(account);
             const groups = await Promise.all(groupIds.map(async (id) => {
                 const details = await contract.getGroupDetails(id);
-                return {
-                    type: 'group', id: Number(details[0]), name: details[1], members: details[3]
-                };
+                return { type: 'group', id: Number(details[0]), name: details[1], members: details[3] };
             }));
-            
             setContacts([...friends, ...groups]);
         } catch(err) { console.error("Could not fetch contacts/groups:", err); }
     }, [contract, account]);
@@ -77,7 +69,7 @@ const ContactsPanel = ({ onSelectChat, activeChat }) => {
         const members = groupMembers.split(',').map(addr => addr.trim()).filter(addr => ethers.isAddress(addr));
         try {
             const tx = await contract.createGroup(name, members);
-await tx.wait();
+            await tx.wait();
             setIsGroupModalOpen(false);
             setGroupName('');
             setGroupMembers('');
@@ -113,17 +105,9 @@ await tx.wait();
                         </div>
                     </div>
                 </header>
-
                 <div className="search-container">
-                    <input
-                        type="text"
-                        placeholder="Search chats..."
-                        className="search-input"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                    <input type="text" placeholder="Search chats..." className="search-input" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
-
                 <div className="contact-list">
                     {filteredContacts.map(contact => (
                         <div key={`${contact.type}-${contact.id}`} className={`contact-item ${activeChat?.id === contact.id && activeChat?.type === contact.type ? 'active' : ''}`} onClick={() => onSelectChat(contact)}>
@@ -136,13 +120,11 @@ await tx.wait();
                     ))}
                 </div>
             </aside>
-
             <Modal isOpen={isFriendModalOpen} onClose={() => setIsFriendModalOpen(false)} title="Add a Friend" onAction={handleAddFriend} actionText="Add" showAction={true}>
                 <p className="view-subtitle" style={{marginBottom: '1rem'}}>Enter a username or Ethereum address.</p>
                 <input type="text" placeholder="Username or 0x..." value={friendAddress} onChange={(e) => setFriendAddress(e.target.value)} className="view-input"/>
                 {friendError && <p style={{color: 'red', marginTop: '0.5rem'}}>{friendError}</p>}
             </Modal>
-
             <Modal isOpen={isGroupModalOpen} onClose={() => setIsGroupModalOpen(false)} title="Create a New Group" onAction={handleCreateGroup} actionText="Create" showAction={true}>
                 <p className="view-subtitle" style={{marginBottom: '1rem'}}>Enter a name for your group.</p>
                 <input type="text" placeholder="Group Name" value={groupName} onChange={(e) => setGroupName(e.target.value)} className="view-input"/>
@@ -153,5 +135,4 @@ await tx.wait();
         </>
     );
 };
-
 export default ContactsPanel;

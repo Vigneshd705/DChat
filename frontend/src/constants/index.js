@@ -1,14 +1,7 @@
-export const contractAddress ="0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"; 
+export const contractAddress ="0x5FbDB2315678afecb367f032d93F642f64180aa3"; 
 // export const contractAddress =import.meta.env.VITE_CONTRACT_ADDRESS; 
 
 export const contractABI = [
-    {
-      "anonymous": false,
-      "inputs": [
-        { "indexed": true, "internalType": "address", "name": "user1", "type": "address" },
-        { "indexed": true, "internalType": "address", "name": "user2", "type": "address" }
-      ], "name": "FriendAdded", "type": "event"
-    },
     {
       "anonymous": false,
       "inputs": [
@@ -90,6 +83,43 @@ export const contractABI = [
         {
           "indexed": false,
           "internalType": "string",
+          "name": "ipfsCid",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "fileName",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "NewGroupIPFSMessage",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "from",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "groupId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
           "name": "message",
           "type": "string"
         },
@@ -100,7 +130,44 @@ export const contractABI = [
           "type": "uint256"
         }
       ],
-      "name": "NewGroupMessage",
+      "name": "NewGroupTextMessage",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "from",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "ipfsCid",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "fileName",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "NewIPFSMessage",
       "type": "event"
     },
     {
@@ -131,7 +198,7 @@ export const contractABI = [
           "type": "uint256"
         }
       ],
-      "name": "NewMessage",
+      "name": "NewTextMessage",
       "type": "event"
     },
     {
@@ -310,11 +377,57 @@ export const contractABI = [
         },
         {
           "internalType": "string",
+          "name": "_ipfsCid",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "_fileName",
+          "type": "string"
+        }
+      ],
+      "name": "sendGroupIPFSMessage",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_groupId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
           "name": "_message",
           "type": "string"
         }
       ],
-      "name": "sendGroupMessage",
+      "name": "sendGroupTextMessage",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "_ipfsCid",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "_fileName",
+          "type": "string"
+        }
+      ],
+      "name": "sendMessageIPFS",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -332,10 +445,9 @@ export const contractABI = [
           "type": "string"
         }
       ],
-      "name": "sendMessage",
+      "name": "sendMessageText",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
     }
-  
-];
+  ]

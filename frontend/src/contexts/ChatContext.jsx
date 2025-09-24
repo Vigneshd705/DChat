@@ -4,14 +4,13 @@ import { contractAddress, contractABI } from '../constants';
 
 const ChatContext = createContext();
 
-// The WebSocket URL for a default Hardhat node
 const WEBSOCKET_URL = "ws://127.0.0.1:8545";
 
 export const ChatProvider = ({ children }) => {
     const [account, setAccount] = useState(null);
     const [username, setUsername] = useState('');
-    const [contract, setContract] = useState(null); // For sending transactions (with signer)
-    const [readOnlyContract, setReadOnlyContract] = useState(null); // For listening to events
+    const [contract, setContract] = useState(null);
+    const [readOnlyContract, setReadOnlyContract] = useState(null);
     const [error, setError] = useState('');
 
     const setupApp = useCallback(async (accountAddress) => {
@@ -32,7 +31,7 @@ export const ChatProvider = ({ children }) => {
 
         } catch (err) {
             console.error("Setup App Error:", err);
-            setError("Failed to set up the application. Ensure your contract is deployed and the address/ABI are correct.");
+            setError("Failed to set up the application. Ensure contract is deployed and constants are correct.");
         }
     }, []);
 
